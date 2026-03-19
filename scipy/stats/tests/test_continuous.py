@@ -201,28 +201,32 @@ families = continuous_families + discrete_families
 class TestDistributions:
     @pytest.mark.fail_slow(60)  # need to break up check_moment_funcs
     @settings(max_examples=20)
-    @pytest.mark.parametrize('family', families)
     @given(data=strategies.data(), seed=strategies.integers(min_value=0))
-    def test_support_moments_sample(self, family, data, seed):
+    @pytest.mark.parametrize("check_func", [check_support, 
+                                            check_moment_funcs,
+                                            check_lmoment_funcs, 
+                                            check_sample_shape_NaNs])
+    def test_support_moments_sample(self, data, seed, check_func):
         rng = np.random.default_rng(seed)
 
         # relative proportions of valid, endpoint, out of bounds, and NaN params
         proportions = (0.7, 0.1, 0.1, 0.1)
-        tmp = draw_distribution_from_family(family, data, rng, proportions)
+        tmp = draw_distribution_from_family(self.distribution, data, rng, proportions)
         dist, x, y, p, logp, result_shape, x_result_shape, xy_result_shape = tmp
         sample_shape = data.draw(npst.array_shapes(min_dims=0, min_side=0,
                                                    max_side=20))
 
         with np.errstate(invalid='ignore', divide='ignore'):
-            check_support(dist)
-            check_moment_funcs(dist, result_shape)  # this needs to get split up
-            check_lmoment_funcs(dist, result_shape)
-            check_sample_shape_NaNs(dist, 'sample', sample_shape, result_shape, rng)
-            qrng = qmc.Halton(d=1, seed=rng)
-            check_sample_shape_NaNs(dist, 'sample', sample_shape, result_shape, qrng)
+            if check_func == check_support:
+                check_func(dist)
+            elif check_func == check_sample_shape_NaNs:
+                check_func(dist, 'sample', sample_shape, result_shape, rng)
+                qrng = qmc.Halton(d=1, seed=rng)
+                check_func(dist, 'sample', sample_shape, result_shape, qrng)
+            else: 
+                check_func(dist, result_shape)
 
-    @pytest.mark.fail_slow(10)
-    @pytest.mark.parametrize('family', families)
+    @pytest.mark.fail_slow(5)
     @pytest.mark.parametrize('func, methods, arg',
                              [('entropy', {'log/exp', 'quadrature'}, None),
                               ('logentropy', {'log/exp', 'quadrature'}, None),
@@ -243,17 +247,14 @@ class TestDistributions:
                               ])
     @settings(max_examples=20)
     @given(data=strategies.data(), seed=strategies.integers(min_value=0))
-    def test_funcs(self, family, data, seed, func, methods, arg):
-        if family == Uniform and func == 'mode':
-            pytest.skip("Mode is not unique; `method`s disagree.")
-
+    def test_funcs(self, data, seed, func, methods, arg):
         rng = np.random.default_rng(seed)
 
         # relative proportions of valid, endpoint, out of bounds, and NaN params
         proportions = (0.7, 0.1, 0.1, 0.1)
-        tmp = draw_distribution_from_family(family, data, rng, proportions)
+        tmp = draw_distribution_from_family(self.distribution, data, rng, proportions)
         dist, x, y, p, logp, result_shape, x_result_shape, xy_result_shape = tmp
-
+        
         args = {'x': x, 'p': p, 'logp': p}
         with np.errstate(invalid='ignore', divide='ignore', over='ignore'):
             if arg is None:
@@ -288,7 +289,7 @@ class TestDistributions:
 
     @pytest.mark.parametrize('method_name', ['cdf', 'ccdf'])
     def test_complement_safe(self, method_name):
-        X = stats.Normal(mu=1, sigma=2)
+        X = self.distribution(**self.args)
         X.tol = 1e-12
         p = np.asarray([1e-4, 1e-3])
         func = getattr(X, method_name)
@@ -302,7 +303,7 @@ class TestDistributions:
 
     @pytest.mark.parametrize('method_name', ['cdf', 'ccdf'])
     def test_icomplement_safe(self, method_name):
-        X = stats.Normal(mu=1, sigma=2)
+        X = self.distribution(**self.args)
         X.tol = 1e-12
         p = np.asarray([1e-4, 1e-3])
         func = getattr(X, method_name)
@@ -314,7 +315,7 @@ class TestDistributions:
         assert_allclose(func(x1[0]), p[0], rtol=X.tol)
 
     def test_subtraction_safe(self):
-        X = stats.Normal()
+        X = self.distribution(**self.args)
         X.tol = 1e-12
 
         # Regular subtraction is fine in either tail (and of course, across tails)
@@ -330,7 +331,6 @@ class TestDistributions:
         x = np.asarray([-1e-20, -1e-21, 1e-20, 1e-21, -1e-20])
         y = np.asarray([-1e-21, -1e-20, 1e-21, 1e-20, 1e-20])
 
-
         p0 = X.pdf(0)*(y-x)
         p1 = X.cdf(x, y, method='subtraction_safe')
         p2 = X.cdf(x, y, method='subtraction')
@@ -339,14 +339,14 @@ class TestDistributions:
 
     def test_logentropy_safe(self):
         # simulate an `entropy` calculation over/underflowing with extreme parameters
-        class _Normal(stats.Normal):
+        class _Distribution(self.distribution):
             def _entropy_formula(self, **params):
                 out = np.asarray(super()._entropy_formula(**params))
                 out[0] = 0
                 out[-1] = np.inf
                 return out
 
-        X = _Normal(sigma=[1, 2, 3])
+        X = _Distribution(**self.extreme_args)
         with np.errstate(divide='ignore'):
             res1 = X.logentropy(method='logexp_safe')
             res2 = X.logentropy(method='logexp')
@@ -360,7 +360,7 @@ class TestDistributions:
 
     def test_logcdf2_safe(self):
         # test what happens when 2-arg `cdf` underflows
-        X = stats.Normal(sigma=[1, 2, 3])
+        X = self.distribution(**self.args)
         x = [-301, 1, 300]
         y = [-300, 2, 301]
         with np.errstate(divide='ignore'):
@@ -377,7 +377,7 @@ class TestDistributions:
     @pytest.mark.parametrize('method_name', ['logcdf', 'logccdf'])
     def test_logexp_safe(self, method_name):
         # test what happens when `cdf`/`ccdf` underflows
-        X = stats.Normal(sigma=2)
+        X = self.distribution(**self.args)
         x = [-301, 1] if method_name == 'logcdf' else [301, 1]
         func = getattr(X, method_name)
         with np.errstate(divide='ignore'):
@@ -385,9 +385,68 @@ class TestDistributions:
             res2 = func(x, method='logexp')
         ref = func(x, method='quadrature')
         assert res1[0] == ref[0]
-        assert res1[0] != res2[0]
+        assert res1[0] != res2[0], (res1[0], res2[0], method_name)
         assert res1[1] == res2[1]
         assert res1[1] != ref[1]
+
+    def test_ccdf(self):
+        # Check that the ccdf and logccdf return 1-cdf
+        X = self.distribution(mu = np.random.normal(), sigma = np.random.random())
+        X.tol = 1e-12
+
+        vals = np.random.normal(size=100)
+        cdf = X.cdf(vals)
+        ccdf = X.ccdf(vals)
+
+        assert_allclose(cdf, 1-ccdf, atol=1e-16)
+
+        cdf = np.exp(X.logcdf(vals))
+        ccdf = np.exp(X.logccdf(vals))
+
+        assert_allclose(cdf, 1-ccdf, atol=1e-16)
+
+    @pytest.mark.parametrize('x_shape', [tuple(), (2, 3)])
+    @pytest.mark.parametrize('dist_shape', [tuple(), (4, 1)])
+    @pytest.mark.parametrize('fname', ['sample'])
+    @pytest.mark.parametrize('rng_type', [np.random.Generator, qmc.Halton, qmc.Sobol])
+    def test_sample_against_cdf(self, dist_shape, x_shape, fname, rng_type):
+        rng = np.random.default_rng(842582438235635)
+        num_parameters = self.distribution._num_parameters()
+
+        if dist_shape and num_parameters == 0:
+            pytest.skip("Distribution can't have a shape without parameters.")
+
+        dist = self.distribution._draw(dist_shape, rng)
+
+        n = 1024
+        sample_size = (n,) + x_shape
+        sample_array_shape = sample_size + dist_shape
+
+        if fname == 'sample':
+            sample_method = dist.sample
+
+        if rng_type != np.random.Generator:
+            rng = rng_type(d=1, seed=rng)
+        x = sample_method(sample_size, rng=rng)
+        assert x.shape == sample_array_shape
+
+        # probably should give `axis` argument to ks_1samp, review that separately
+        statistic = _kolmogorov_smirnov(dist, x, axis=0)
+        pvalue = kolmogn(x.shape[0], statistic, cdf=False)
+        p_threshold = 0.01
+        num_pvalues = pvalue.size
+        num_small_pvalues = np.sum(pvalue < p_threshold)
+        assert num_small_pvalues < p_threshold * num_pvalues
+
+    @given(data=strategies.data(), seed=strategies.integers(min_value=0))
+    def test_pdf(self, data, seed):
+        rng = np.random.default_rng(seed)
+        proportions = (0.7, 0.1, 0.1, 0.1)
+        tmp = draw_distribution_from_family(self.distribution, data, rng, proportions)
+        dist, x, y, p, logp, result_shape, x_result_shape, xy_result_shape = tmp
+        res = dist.pdf(x)
+        ref = self._pdf_func(x, **dist._parameters)
+        np.testing.assert_allclose(res, ref)
 
 def check_sample_shape_NaNs(dist, fname, sample_shape, result_shape, rng):
     full_shape = sample_shape + result_shape
@@ -810,41 +869,6 @@ def check_lmoment_funcs(dist, result_shape):
         check(i, standardize, 'general', ref, success=False)
         if dist._overrides('_icdf_formula'):
             check(i, standardize, 'quadrature_icdf', ref, success=True)
-
-
-@pytest.mark.parametrize('family', (Normal,))
-@pytest.mark.parametrize('x_shape', [tuple(), (2, 3)])
-@pytest.mark.parametrize('dist_shape', [tuple(), (4, 1)])
-@pytest.mark.parametrize('fname', ['sample'])
-@pytest.mark.parametrize('rng_type', [np.random.Generator, qmc.Halton, qmc.Sobol])
-def test_sample_against_cdf(family, dist_shape, x_shape, fname, rng_type):
-    rng = np.random.default_rng(842582438235635)
-    num_parameters = family._num_parameters()
-
-    if dist_shape and num_parameters == 0:
-        pytest.skip("Distribution can't have a shape without parameters.")
-
-    dist = family._draw(dist_shape, rng)
-
-    n = 1024
-    sample_size = (n,) + x_shape
-    sample_array_shape = sample_size + dist_shape
-
-    if fname == 'sample':
-        sample_method = dist.sample
-
-    if rng_type != np.random.Generator:
-        rng = rng_type(d=1, seed=rng)
-    x = sample_method(sample_size, rng=rng)
-    assert x.shape == sample_array_shape
-
-    # probably should give `axis` argument to ks_1samp, review that separately
-    statistic = _kolmogorov_smirnov(dist, x, axis=0)
-    pvalue = kolmogn(x.shape[0], statistic, cdf=False)
-    p_threshold = 0.01
-    num_pvalues = pvalue.size
-    num_small_pvalues = np.sum(pvalue < p_threshold)
-    assert num_small_pvalues < p_threshold * num_pvalues
 
 
 def get_valid_parameters(dist):
