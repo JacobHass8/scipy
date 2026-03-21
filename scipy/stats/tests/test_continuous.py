@@ -277,118 +277,6 @@ class TestDistributions:
                     check_ccdf2(dist, False, x, y, xy_result_shape, methods)
                     check_ccdf2(dist, True, x, y, xy_result_shape, methods)
 
-    def test_plot(self):
-        try:
-            import matplotlib.pyplot as plt
-        except ImportError:
-            return
-
-        X = Uniform(a=0., b=1.)
-        ax = X.plot()
-        assert ax == plt.gca()
-
-    @pytest.mark.parametrize('method_name', ['cdf', 'ccdf'])
-    def test_complement_safe(self, method_name):
-        X = self.distribution(**self.args)
-        X.tol = 1e-12
-        p = np.asarray([1e-4, 1e-3])
-        func = getattr(X, method_name)
-        ifunc = getattr(X, 'i'+method_name)
-        x = ifunc(p, method='formula')
-        p1 = func(x, method='complement_safe')
-        p2 = func(x, method='complement')
-        assert_equal(p1[1], p2[1])
-        assert p1[0] != p2[0]
-        assert_allclose(p1[0], p[0], rtol=X.tol)
-
-    @pytest.mark.parametrize('method_name', ['cdf', 'ccdf'])
-    def test_icomplement_safe(self, method_name):
-        X = self.distribution(**self.args)
-        X.tol = 1e-12
-        p = np.asarray([1e-4, 1e-3])
-        func = getattr(X, method_name)
-        ifunc = getattr(X, 'i'+method_name)
-        x1 = ifunc(p, method='complement_safe')
-        x2 = ifunc(p, method='complement')
-        assert_equal(x1[1], x2[1])
-        assert x1[0] != x2[0]
-        assert_allclose(func(x1[0]), p[0], rtol=X.tol)
-
-    def test_subtraction_safe(self):
-        X = self.distribution(**self.args)
-        X.tol = 1e-12
-
-        # Regular subtraction is fine in either tail (and of course, across tails)
-        x = [-11, -10, 10, 11]
-        y = [-10, -11, 11, 10]
-        p0 = X.cdf(x, y, method='quadrature')
-        p1 = X.cdf(x, y, method='subtraction_safe')
-        p2 = X.cdf(x, y, method='subtraction')
-        assert_equal(p2, p1)
-        assert_allclose(p1, p0, rtol=X.tol)
-
-        # Safe subtraction is needed in special cases
-        x = np.asarray([-1e-20, -1e-21, 1e-20, 1e-21, -1e-20])
-        y = np.asarray([-1e-21, -1e-20, 1e-21, 1e-20, 1e-20])
-
-        p0 = X.pdf(0)*(y-x)
-        p1 = X.cdf(x, y, method='subtraction_safe')
-        p2 = X.cdf(x, y, method='subtraction')
-        assert_equal(p2, 0)
-        assert_allclose(p1, p0, rtol=X.tol)
-
-    def test_logentropy_safe(self):
-        # simulate an `entropy` calculation over/underflowing with extreme parameters
-        class _Distribution(self.distribution):
-            def _entropy_formula(self, **params):
-                out = np.asarray(super()._entropy_formula(**params))
-                out[0] = 0
-                out[-1] = np.inf
-                return out
-
-        X = _Distribution(**self.extreme_args)
-        with np.errstate(divide='ignore'):
-            res1 = X.logentropy(method='logexp_safe')
-            res2 = X.logentropy(method='logexp')
-        ref = X.logentropy(method='quadrature')
-        i_fl = [0, -1]  # first and last
-        assert np.isinf(res2[i_fl]).all()
-        assert res1[1] == res2[1]
-        # quadrature happens to be perfectly accurate on some platforms
-        # assert res1[1] != ref[1]
-        assert_equal(res1[i_fl], ref[i_fl])
-
-    def test_logcdf2_safe(self):
-        # test what happens when 2-arg `cdf` underflows
-        X = self.distribution(**self.args)
-        x = [-301, 1, 300]
-        y = [-300, 2, 301]
-        with np.errstate(divide='ignore'):
-            res1 = X.logcdf(x, y, method='logexp_safe')
-            res2 = X.logcdf(x, y, method='logexp')
-        ref = X.logcdf(x, y, method='quadrature')
-        i_fl = [0, -1]  # first and last
-        assert np.isinf(res2[i_fl]).all()
-        assert res1[1] == res2[1]
-        # quadrature happens to be perfectly accurate on some platforms
-        # assert res1[1] != ref[1]
-        assert_equal(res1[i_fl], ref[i_fl])
-
-    @pytest.mark.parametrize('method_name', ['logcdf', 'logccdf'])
-    def test_logexp_safe(self, method_name):
-        # test what happens when `cdf`/`ccdf` underflows
-        X = self.distribution(**self.args)
-        x = [-301, 1] if method_name == 'logcdf' else [301, 1]
-        func = getattr(X, method_name)
-        with np.errstate(divide='ignore'):
-            res1 = func(x, method='logexp_safe')
-            res2 = func(x, method='logexp')
-        ref = func(x, method='quadrature')
-        assert res1[0] == ref[0]
-        assert res1[0] != res2[0], (res1[0], res2[0], method_name)
-        assert res1[1] == res2[1]
-        assert res1[1] != ref[1]
-
     def test_ccdf(self):
         # Check that the ccdf and logccdf return 1-cdf
         X = self.distribution(mu = np.random.normal(), sigma = np.random.random())
@@ -447,6 +335,121 @@ class TestDistributions:
         res = dist.pdf(x)
         ref = self._pdf_func(x, **dist._parameters)
         np.testing.assert_allclose(res, ref)
+
+
+class TestGenericDistributions:
+    def test_plot(self):
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            return
+
+        X = Uniform(a=0., b=1.)
+        ax = X.plot()
+        assert ax == plt.gca()
+
+    @pytest.mark.parametrize('method_name', ['cdf', 'ccdf'])
+    def test_complement_safe(self, method_name):
+        X = stats.Normal(mu=1, sigma=2)
+        X.tol = 1e-12
+        p = np.asarray([1e-4, 1e-3])
+        func = getattr(X, method_name)
+        ifunc = getattr(X, 'i'+method_name)
+        x = ifunc(p, method='formula')
+        p1 = func(x, method='complement_safe')
+        p2 = func(x, method='complement')
+        assert_equal(p1[1], p2[1])
+        assert p1[0] != p2[0]
+        assert_allclose(p1[0], p[0], rtol=X.tol)
+
+    @pytest.mark.parametrize('method_name', ['cdf', 'ccdf'])
+    def test_icomplement_safe(self, method_name):
+        X = stats.Normal(mu=1, sigma=2)
+        X.tol = 1e-12
+        p = np.asarray([1e-4, 1e-3])
+        func = getattr(X, method_name)
+        ifunc = getattr(X, 'i'+method_name)
+        x1 = ifunc(p, method='complement_safe')
+        x2 = ifunc(p, method='complement')
+        assert_equal(x1[1], x2[1])
+        assert x1[0] != x2[0]
+        assert_allclose(func(x1[0]), p[0], rtol=X.tol)
+
+    def test_subtraction_safe(self):
+        X = stats.Normal()
+        X.tol = 1e-12
+
+        # Regular subtraction is fine in either tail (and of course, across tails)
+        x = [-11, -10, 10, 11]
+        y = [-10, -11, 11, 10]
+        p0 = X.cdf(x, y, method='quadrature')
+        p1 = X.cdf(x, y, method='subtraction_safe')
+        p2 = X.cdf(x, y, method='subtraction')
+        assert_equal(p2, p1)
+        assert_allclose(p1, p0, rtol=X.tol)
+
+        # Safe subtraction is needed in special cases
+        x = np.asarray([-1e-20, -1e-21, 1e-20, 1e-21, -1e-20])
+        y = np.asarray([-1e-21, -1e-20, 1e-21, 1e-20, 1e-20])
+
+        p0 = X.pdf(0)*(y-x)
+        p1 = X.cdf(x, y, method='subtraction_safe')
+        p2 = X.cdf(x, y, method='subtraction')
+        assert_equal(p2, 0)
+        assert_allclose(p1, p0, rtol=X.tol)
+
+    def test_logentropy_safe(self):
+        # simulate an `entropy` calculation over/underflowing with extreme parameters
+        class _Normal(stats.Normal):
+            def _entropy_formula(self, **params):
+                out = np.asarray(super()._entropy_formula(**params))
+                out[0] = 0
+                out[-1] = np.inf
+                return out
+
+        X = _Normal(**self.extreme_args)
+        with np.errstate(divide='ignore'):
+            res1 = X.logentropy(method='logexp_safe')
+            res2 = X.logentropy(method='logexp')
+        ref = X.logentropy(method='quadrature')
+        i_fl = [0, -1]  # first and last
+        assert np.isinf(res2[i_fl]).all()
+        assert res1[1] == res2[1]
+        # quadrature happens to be perfectly accurate on some platforms
+        # assert res1[1] != ref[1]
+        assert_equal(res1[i_fl], ref[i_fl])
+
+    def test_logcdf2_safe(self):
+        # test what happens when 2-arg `cdf` underflows
+        X = stats.Normal(sigma=[1, 2, 3])
+        x = [-301, 1, 300]
+        y = [-300, 2, 301]
+        with np.errstate(divide='ignore'):
+            res1 = X.logcdf(x, y, method='logexp_safe')
+            res2 = X.logcdf(x, y, method='logexp')
+        ref = X.logcdf(x, y, method='quadrature')
+        i_fl = [0, -1]  # first and last
+        assert np.isinf(res2[i_fl]).all()
+        assert res1[1] == res2[1]
+        # quadrature happens to be perfectly accurate on some platforms
+        # assert res1[1] != ref[1]
+        assert_equal(res1[i_fl], ref[i_fl])
+
+    @pytest.mark.parametrize('method_name', ['logcdf', 'logccdf'])
+    def test_logexp_safe(self, method_name):
+        # test what happens when `cdf`/`ccdf` underflows
+        X = stats.Normal(sigma=2)
+        x = [-301, 1] if method_name == 'logcdf' else [301, 1]
+        func = getattr(X, method_name)
+        with np.errstate(divide='ignore'):
+            res1 = func(x, method='logexp_safe')
+            res2 = func(x, method='logexp')
+        ref = func(x, method='quadrature')
+        assert res1[0] == ref[0]
+        assert res1[0] != res2[0], (res1[0], res2[0], method_name)
+        assert res1[1] == res2[1]
+        assert res1[1] != ref[1]
+
 
 def check_sample_shape_NaNs(dist, fname, sample_shape, result_shape, rng):
     full_shape = sample_shape + result_shape
