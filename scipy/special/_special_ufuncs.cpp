@@ -13,6 +13,7 @@
 #include <xsf/binom.h>
 #include <xsf/boxcox.h>
 #include <xsf/cdflib.h>
+#include <xsf/cephes/unity.h>
 #include <xsf/convex_analysis.h>
 #include <xsf/digamma.h>
 #include <xsf/digammainv.h>
@@ -22,6 +23,7 @@
 #include <xsf/expint.h>
 #include <xsf/fresnel.h>
 #include <xsf/gamma.h>
+#include <xsf/hyperu.h>
 #include <xsf/hyp2f1.h>
 #include <xsf/iv_ratio.h>
 #include <xsf/kelvin.h>
@@ -33,6 +35,7 @@
 #include <xsf/ndtri_exp.h>
 #include <xsf/par_cyl.h>
 #include <xsf/specfun.h>
+#include <xsf/spence.h>
 #include <xsf/sph_bessel.h>
 #include <xsf/sph_harm.h>
 #include <xsf/sphd_wave.h>
@@ -55,6 +58,8 @@ extern const char *_cospi_doc;
 extern const char *_bivariate_normal_sf_doc;
 extern const char *_sinpi_doc;
 extern const char *_gen_harmonic_doc;
+extern const char *_igam_fac_doc;
+extern const char *_lgam1p_doc;
 extern const char *_log1mexp_doc;
 extern const char *_log1pmx_doc;
 extern const char *_normalized_gen_harmonic_doc;
@@ -123,6 +128,7 @@ extern const char *hankel1e_doc;
 extern const char *hankel2_doc;
 extern const char *hankel2e_doc;
 extern const char *hyp2f1_doc;
+extern const char *hyperu_doc;
 extern const char *i0_doc;
 extern const char *i0e_doc;
 extern const char *i1_doc;
@@ -193,6 +199,7 @@ extern const char *rgamma_doc;
 extern const char *_riemann_zeta_doc;
 extern const char *scaled_exp1_doc;
 extern const char *sindg_doc;
+extern const char *spence_doc;
 extern const char *spherical_jn_doc;
 extern const char *spherical_jn_d_doc;
 extern const char *spherical_yn_doc;
@@ -565,6 +572,18 @@ _special_ufuncs_module_exec(PyObject *module)
         "gammainccinv", gammainccinv_doc);
     PyModule_AddObjectRef(module, "gammainccinv", gammainccinv);
 
+    PyObject *_igam_fac = xsf::numpy::ufunc(
+        {static_cast<xsf::numpy::ff_f>(xsf::cephes::detail::igam_fac),
+         static_cast<xsf::numpy::dd_d>(xsf::cephes::detail::igam_fac)},
+        "_igam_fac", _igam_fac_doc);
+    PyModule_AddObjectRef(module, "_igam_fac", _igam_fac);
+    
+    PyObject *_lgam1p =
+        xsf::numpy::ufunc({static_cast<xsf::numpy::f_f>(xsf::cephes::lgam1p),
+                           static_cast<xsf::numpy::d_d>(xsf::cephes::lgam1p)},
+                          "_lgam1p", _lgam1p_doc);
+    PyModule_AddObjectRef(module, "_lgam1p", _lgam1p);
+
     PyObject *gammaln =
         xsf::numpy::ufunc({static_cast<xsf::numpy::f_f>(xsf::gammaln), static_cast<xsf::numpy::d_d>(xsf::gammaln)},
                           "gammaln", gammaln_doc);
@@ -580,6 +599,11 @@ _special_ufuncs_module_exec(PyObject *module)
                            static_cast<xsf::numpy::fffF_F>(xsf::hyp2f1), static_cast<xsf::numpy::dddD_D>(xsf::hyp2f1)},
                           "hyp2f1", hyp2f1_doc);
     PyModule_AddObjectRef(module, "hyp2f1", hyp2f1);
+
+    PyObject *hyperu =
+        xsf::numpy::ufunc({static_cast<xsf::numpy::fff_f>(xsf::hyperu), static_cast<xsf::numpy::ddd_d>(xsf::hyperu)}, 
+                          "hyperu", hyperu_doc);
+    PyModule_AddObjectRef(module, "hyperu", hyperu);
 
     PyObject *hankel1 = xsf::numpy::ufunc(
         {static_cast<xsf::numpy::fF_F>(xsf::cyl_hankel_1), static_cast<xsf::numpy::dD_D>(xsf::cyl_hankel_1)}, "hankel1",
@@ -1102,6 +1126,12 @@ _special_ufuncs_module_exec(PyObject *module)
     PyObject *sindg = xsf::numpy::ufunc(
         {static_cast<xsf::numpy::f_f>(xsf::sindg), static_cast<xsf::numpy::d_d>(xsf::sindg)}, "sindg", sindg_doc);
     PyModule_AddObjectRef(module, "sindg", sindg);
+
+    PyObject *spence = xsf::numpy::ufunc(
+        {static_cast<xsf::numpy::f_f>(xsf::spence), static_cast<xsf::numpy::d_d>(xsf::spence),
+         static_cast<xsf::numpy::F_F>(xsf::spence), static_cast<xsf::numpy::D_D>(xsf::spence)},
+        "spence", spence_doc);
+    PyModule_AddObjectRef(module, "spence", spence);
 
     PyObject *_spherical_jn = xsf::numpy::ufunc(
         {static_cast<xsf::numpy::lf_f>(xsf::sph_bessel_j), static_cast<xsf::numpy::ld_d>(xsf::sph_bessel_j),

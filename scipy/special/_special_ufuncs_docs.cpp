@@ -6,6 +6,14 @@ const char *_bivariate_normal_sf_doc = R"(
     Internal function, do not use.
     )";
 
+const char *_igam_fac_doc = R"(
+    Internal function, do not use.
+    )";
+
+const char *_lgam1p_doc = R"(
+    Internal function, do not use.
+    )";
+
 const char *agm_doc = R"(
     agm(a, b, out=None)
 
@@ -3813,6 +3821,70 @@ const char *hyp2f1_doc = R"(
     0.9272952180016117
     >>> np.arctan(z) / z
     0.9272952180016122
+    )";
+
+const char *hyperu_doc = R"(
+    hyperu(a, b, x, out=None)
+
+    Confluent hypergeometric function U.
+
+    It is defined as the solution to the equation
+
+    .. math::
+
+       x \frac{d^2w}{dx^2} + (b - x) \frac{dw}{dx} - aw = 0
+
+    which satisfies the property
+
+    .. math::
+
+       U(a, b, x) \sim x^{-a}
+
+    as :math:`x \to \infty`. See [DLMF]_ for more details.
+
+    Parameters
+    ----------
+    a, b : array_like
+        Real-valued parameters
+    x : array_like
+        Real-valued argument
+    out : ndarray, optional
+        Optional output array for the function values
+
+    Returns
+    -------
+    scalar or ndarray
+        Values of `U`
+
+    References
+    ----------
+    .. [DLMF] NIST Digital Library of Mathematics Functions
+              https://dlmf.nist.gov/13.2#E6
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import scipy.special as sc
+
+    It has a branch cut along the negative `x` axis.
+
+    >>> x = np.linspace(-0.1, -10, 5)
+    >>> sc.hyperu(1, 1, x)
+    array([nan, nan, nan, nan, nan])
+
+    It approaches zero as `x` goes to infinity.
+
+    >>> x = np.array([1, 10, 100])
+    >>> sc.hyperu(1, 1, x)
+    array([0.59634736, 0.09156333, 0.00990194])
+
+    It satisfies Kummer's transformation.
+
+    >>> a, b, x = 2, 1, 1
+    >>> sc.hyperu(a, b, x)
+    0.1926947246463881
+    >>> x**(1 - b) * sc.hyperu(a - b + 1, 2 - b, x)
+    0.1926947246463881
     )";
 
 const char *it2i0k0_doc = R"(
@@ -7641,6 +7713,98 @@ const char *tandg_doc = R"(
     >>> np.tan(x * np.pi / 180)
     array([ 0.0000000e+00, -1.2246468e-16, -2.4492936e-16])
     )";
+
+const char *spence_doc = R"(
+    spence(z, out=None)
+
+    Spence's function, also known as the dilogarithm.
+
+    It is defined to be
+
+    .. math::
+      \int_1^z \frac{\log(t)}{1 - t}dt
+
+    for complex :math:`z`, where the contour of integration is taken
+    to avoid the branch cut of the logarithm. Spence's function is
+    analytic everywhere except the negative real axis where it has a
+    branch cut.
+
+    Parameters
+    ----------
+    z : array_like
+        Points at which to evaluate Spence's function
+    out : ndarray, optional
+        Optional output array for the function results
+
+    Returns
+    -------
+    s : scalar or ndarray
+        Computed values of Spence's function
+
+    Notes
+    -----
+    There is a different convention which defines Spence's function by
+    the integral
+
+    .. math::
+      -\int_0^z \frac{\log(1 - t)}{t}dt,
+
+    which is equivalent to ``spence(1 - z)``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from scipy.special import spence
+    >>> import matplotlib.pyplot as plt
+
+    The function is defined for complex inputs:
+
+    >>> spence([1-1j, 1.5+2j, 3j, -10-5j])
+    array([-0.20561676+0.91596559j, -0.86766909-1.39560134j,
+           -0.59422064-2.49129918j, -1.14044398+6.80075924j])
+
+    For complex inputs on the branch cut, which is the negative real axis,
+    the function returns the limit for ``z`` with positive imaginary part.
+    For example, in the following, note the sign change of the imaginary
+    part of the output for ``z = -2`` and ``z = -2 - 1e-8j``:
+
+    >>> spence([-2 + 1e-8j, -2, -2 - 1e-8j])
+    array([2.32018041-3.45139229j, 2.32018042-3.4513923j ,
+           2.32018041+3.45139229j])
+
+    The function returns ``nan`` for real inputs on the branch cut:
+
+    >>> spence(-1.5)
+    nan
+
+    Verify some particular values: ``spence(0) = pi**2/6``,
+    ``spence(1) = 0`` and ``spence(2) = -pi**2/12``.
+
+    >>> spence([0, 1, 2])
+    array([ 1.64493407,  0.        , -0.82246703])
+    >>> np.pi**2/6, -np.pi**2/12
+    (1.6449340668482264, -0.8224670334241132)
+
+    Verify the identity::
+
+        spence(z) + spence(1 - z) = pi**2/6 - log(z)*log(1 - z)
+
+    >>> z = 3 + 4j
+    >>> spence(z) + spence(1 - z)
+    (-2.6523186143876067+1.8853470951513935j)
+    >>> np.pi**2/6 - np.log(z)*np.log(1 - z)
+    (-2.652318614387606+1.885347095151394j)
+
+    Plot the function for positive real input.
+
+    >>> fig, ax = plt.subplots()
+    >>> x = np.linspace(0, 6, 400)
+    >>> ax.plot(x, spence(x))
+    >>> ax.grid()
+    >>> ax.set_xlabel('x')
+    >>> ax.set_title('spence(x)')
+    >>> plt.show()
+)";
 
 const char *struve_h_doc = R"(
     struve(v, x, out=None)
