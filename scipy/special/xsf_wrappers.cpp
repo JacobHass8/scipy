@@ -19,6 +19,7 @@
 #include <xsf/expint.h>
 #include <xsf/fresnel.h>
 #include <xsf/gamma.h>
+#include <xsf/hyp0f1.h>
 #include <xsf/hyp2f1.h>
 #include <xsf/hyperu.h>
 #include <xsf/kelvin.h>
@@ -69,6 +70,10 @@ npy_cdouble to_ccomplex(complex<double> z) { return {z.real(), z.imag()}; }
 } // namespace
 
 npy_cdouble chyp1f1_wrap(double a, double b, npy_cdouble z) { return to_ccomplex(xsf::hyp1f1(a, b, to_complex(z))); }
+
+npy_cdouble special_chyp0f1(double v, npy_cdouble z) { return to_ccomplex(xsf::hyp0f1(v, to_complex(z))); }
+
+double special_hyp0f1(double v, double z) { return xsf::hyp0f1(v, z); }
 
 double hyp1f1_wrap(double a, double b, double x) { return xsf::hyp1f1(a, b, x); }
 
@@ -599,13 +604,7 @@ double xsf_gdtrix(double a, double b, double p) { return xsf::gdtrix(a, b, p); }
 
 double xsf_kolmogorov(double x) { return xsf::cpu::kolmogorov(x); }
 
-double xsf_kolmogc(double x) { return xsf::cpu::kolmogc(x); }
-
 double xsf_kolmogi(double x) { return xsf::cpu::kolmogi(x); }
-
-double xsf_kolmogci(double x) { return xsf::cpu::kolmogci(x); }
-
-double xsf_kolmogp(double x) { return xsf::cpu::kolmogp(x); }
 
 double xsf_nbdtr(int k, int n, double p) { return xsf::nbdtr(k, n, p); }
 

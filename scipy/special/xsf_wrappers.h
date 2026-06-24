@@ -20,6 +20,8 @@ extern "C" {
 #endif /* __cplusplus */
 
 npy_cdouble chyp1f1_wrap(double a, double b, npy_cdouble z);
+npy_cdouble special_chyp0f1(double v, npy_cdouble z);
+double special_hyp0f1(double v, double z);
 double hyp1f1_wrap(double a, double b, double x);
 double special_hyperu(double a, double b, double x);
 
@@ -336,10 +338,7 @@ double xsf_gdtria(double p, double b, double x);
 double xsf_gdtrib(double a, double p, double x);
 double xsf_gdtrix(double a, double b, double p);
 double xsf_kolmogorov(double x);
-double xsf_kolmogc(double x);
 double xsf_kolmogi(double x);
-double xsf_kolmogci(double x);
-double xsf_kolmogp(double x);
 double xsf_nbdtr(int k, int n, double p);
 double xsf_nbdtrc(int k, int n, double p);
 double xsf_nbdtri(int k, int n, double p);

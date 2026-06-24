@@ -57,7 +57,7 @@ solve-group = "default"
 
 [environments.docs]
 # tasks: docs
-features = ["docs"]
+features = ["docs", "marray"]
 solve-group = "default"
 
 [environments.test-fail-slow]
@@ -111,6 +111,10 @@ solve-group = "debug"
 [environments.lint]
 # tasks: lint, check-python-h, tach-check, tach-check-external
 features = ["lint"]
+
+[environments.typecheck]
+# tasks: mypy, pyrefly
+features = ["typecheck", "run-deps", "test-deps"]
 
 # TODO(lucascolley): merge the `default` and `array-api-cpu` solve groups,
 # and create a non-default solve group with minimal dependencies
@@ -339,6 +343,28 @@ pytest-fail-slow = "*"
 cmd = "spin test --no-build -m 'not slow' -- --durations=0 --durations-min=0.5 --fail-slow=1.0"
 depends-on = "build"
 description = "Test SciPy with `fail-slow=1.0`"
+
+
+### Type Checking ###
+
+[feature.typecheck.dependencies]
+mypy = "==2.1.0"
+pyrefly = "==1.1.1"
+typing_extensions = "*"
+types-psutil = "*"
+pybind11 = "*"
+sphinx = "*"
+cython = "*"
+
+[feature.typecheck.tasks.mypy]
+cmd = "spin mypy --no-build"
+depends-on = "build"
+description = "Run mypy type checks"
+
+[feature.typecheck.tasks.pyrefly]
+cmd = "pyrefly check"
+depends-on = "build"
+description = "Run pyrefly type checks"
 
 
 ### Type Stubs ###
